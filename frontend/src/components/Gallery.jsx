@@ -6,7 +6,7 @@ const GALLERY_ITEMS = [
     id: 'pal-cor-2024',
     title: 'Palmeiras x Corinthians',
     date: '2024',
-    video: 'https://sm-computer-vision.onrender.com/api/video/palmeiras_corinthians_web.mp4',
+    video: 'http://localhost:5000/api/video/palmeiras_corinthians_web.mp4',
     thumbnail: null,
     report: {
       frames_analyzed: 166,
