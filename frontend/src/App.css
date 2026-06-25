@@ -1,0 +1,34 @@
+.app {
+  min-height: 100vh;
+  background: var(--bg-primary);
+}
+
+.main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.results-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+@media (max-width: 900px) {
+  .results-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.error-card {
+  background: #2d1015;
+  border: 1px solid var(--accent-red);
+  border-radius: 12px;
+  padding: 16px 20px;
+  color: var(--accent-red);
+  font-size: 14px;
+}

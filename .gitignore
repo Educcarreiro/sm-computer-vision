@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.vite/
+__pycache__/
+*.pyc
+*.pyo
+backend/outputs/
+backend/yolov8n.pt
+backend/static/
+.env
+.DS_Store
