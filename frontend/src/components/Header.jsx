@@ -1,5 +1,3 @@
-import { Activity } from 'lucide-react'
-
 export default function Header() {
   return (
     <header style={{
@@ -11,14 +9,6 @@ export default function Header() {
       justifyContent: 'space-between'
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{
-          width: 40, height: 40,
-          borderRadius: 10,
-          background: 'var(--gradient-main)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center'
-        }}>
-          <Activity size={22} color="#fff" />
-        </div>
         <div>
           <h1 style={{
             fontSize: 20, fontWeight: 700,
@@ -33,7 +23,7 @@ export default function Header() {
             color: 'var(--accent-cyan)',
             letterSpacing: 2, textTransform: 'uppercase'
           }}>
-            AI PLATFORM
+            AI PLATFORM TESTER
           </span>
         </div>
       </div>
