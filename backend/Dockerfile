@@ -15,6 +15,8 @@ COPY . .
 
 RUN python -c "from ultralytics import YOLO; YOLO('yolov8n.pt')"
 
+ENV YOLO_CONFIG_DIR=/tmp/Ultralytics
+
 EXPOSE 5000
 
 CMD ["python", "server.py"]
