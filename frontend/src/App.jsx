@@ -5,6 +5,7 @@ import ProcessingStatus from './components/ProcessingStatus'
 import TacticalReport from './components/TacticalReport'
 import VideoPlayer from './components/VideoPlayer'
 import History from './components/History'
+import Gallery from './components/Gallery'
 import './App.css'
 
 const API = 'http://localhost:5000/api'
@@ -81,6 +82,8 @@ function App() {
             </div>
           </div>
         )}
+
+        <Gallery />
 
         {Object.keys(history).length > 0 && (
           <History items={history} onLoad={loadFromHistory} apiBase={API} />
