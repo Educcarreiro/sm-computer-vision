@@ -4,6 +4,7 @@ const statusLabels = {
   queued: 'Na fila...',
   downloading: 'Baixando vídeo do YouTube...',
   processing: 'Processando com IA (YOLO + OpenCV)...',
+  converting: 'Convertendo vídeo para exibição...',
 }
 
 export default function ProcessingStatus({ status }) {
@@ -42,6 +43,20 @@ export default function ProcessingStatus({ status }) {
       </div>
       <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
         {progress}% concluído
+      </p>
+      <p style={{
+        fontSize: 11,
+        color: 'var(--text-muted)',
+        marginTop: 14,
+        padding: '8px 12px',
+        background: 'var(--bg-card)',
+        border: '1px solid var(--border)',
+        borderRadius: 8,
+        lineHeight: 1.5
+      }}>
+        ⏱ O processamento pode levar alguns minutos. O vídeo é baixado, cada frame
+        é analisado pela IA (YOLOv8) para detecção de jogadores, depois são calculados
+        os padrões táticos e gerado o overlay visual. Aguarde, o resultado vale a pena!
       </p>
     </div>
   )

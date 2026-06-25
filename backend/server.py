@@ -5,7 +5,10 @@ import subprocess
 import threading
 import time
 import json
+import imageio_ffmpeg
 from detector import process_video
+
+FFMPEG = imageio_ffmpeg.get_ffmpeg_exe()
 
 app = Flask(__name__)
 CORS(app)
@@ -40,6 +43,17 @@ def run_job(job_id, url, team_a, team_b):
         )
 
         if video_out and report:
+            jobs[job_id]["status"] = "converting"
+            web_path = video_out.replace(".mp4", "_web.mp4")
+            subprocess.run([
+                FFMPEG, "-i", video_out,
+                "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+                "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+                "-y", web_path
+            ], capture_output=True, timeout=300)
+            if os.path.exists(web_path):
+                os.remove(video_out)
+                video_out = web_path
             jobs[job_id]["status"] = "done"
             jobs[job_id]["video"] = os.path.basename(video_out)
             jobs[job_id]["report"] = report
