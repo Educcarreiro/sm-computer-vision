@@ -15,24 +15,9 @@ CORS(app)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUTS_DIR = os.path.join(BASE_DIR, "outputs")
-GALLERY_FILE = os.path.join(OUTPUTS_DIR, "gallery.json")
 os.makedirs(OUTPUTS_DIR, exist_ok=True)
 
 jobs = {}
-
-
-def load_gallery():
-    if os.path.exists(GALLERY_FILE):
-        with open(GALLERY_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return []
-
-
-def save_to_gallery(entry):
-    gallery = load_gallery()
-    gallery.insert(0, entry)
-    with open(GALLERY_FILE, 'w', encoding='utf-8') as f:
-        json.dump(gallery, f, ensure_ascii=False, indent=2)
 
 
 def run_job(job_id, url, team_a, team_b):
@@ -73,14 +58,6 @@ def run_job(job_id, url, team_a, team_b):
             jobs[job_id]["video"] = os.path.basename(video_out)
             jobs[job_id]["report"] = report
             jobs[job_id]["progress"] = 100
-
-            save_to_gallery({
-                "id": job_id,
-                "url": url,
-                "video": os.path.basename(video_out),
-                "report": report,
-                "created_at": time.strftime("%Y-%m-%d %H:%M")
-            })
         else:
             jobs[job_id]["status"] = "error"
             jobs[job_id]["error"] = "Erro no processamento"
@@ -139,11 +116,6 @@ def serve_video(filename):
 def list_jobs():
     completed = {k: v for k, v in jobs.items() if v["status"] == "done"}
     return jsonify(completed)
-
-
-@app.route("/api/gallery")
-def get_gallery():
-    return jsonify(load_gallery())
 
 
 if __name__ == "__main__":
