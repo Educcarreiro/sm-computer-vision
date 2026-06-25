@@ -1,7 +1,8 @@
 flask
 flask-cors
-opencv-python
+opencv-python-headless
 ultralytics
 numpy
 scipy
 yt-dlp
+imageio[ffmpeg]
