@@ -267,26 +267,24 @@ def list_teams():
 
 @app.route("/api/patterns", methods=["POST"])
 def find_patterns():
-    """Analisa padrões recorrentes de um time em múltiplas partidas"""
+    """Analisa padrões táticos profundos de um time em múltiplas partidas"""
     data = request.json
     team_name = data.get("team", "").strip()
     if not team_name:
         return jsonify({"error": "Nome do time e obrigatorio"}), 400
 
     gallery = load_gallery()
-
-    # Juntar com jobs em memória
     for k, v in jobs.items():
         if v.get("status") == "done" and v.get("report"):
-            found = False
-            for g in gallery:
-                if g.get("id") == k:
-                    found = True
-                    break
-            if not found:
+            if not any(g.get("id") == k for g in gallery):
                 gallery.append({"id": k, "report": v["report"]})
 
-    # Encontrar todas as análises que envolvem esse time
+    import unicodedata
+    def normalize(s):
+        return unicodedata.normalize('NFKD', s.lower().strip()).encode('ascii', 'ignore').decode('ascii')
+
+    search = normalize(team_name)
+
     matches = []
     for item in gallery:
         report = item.get("report")
@@ -294,48 +292,63 @@ def find_patterns():
             continue
         ta = report.get("team_a", {})
         tb = report.get("team_b", {})
-        if ta.get("name", "").lower() == team_name.lower():
+        opponent_data = None
+        team_data = None
+        if normalize(ta.get("name", "")) == search:
+            team_data = ta
+            opponent_data = tb
+        elif normalize(tb.get("name", "")) == search:
+            team_data = tb
+            opponent_data = ta
+        if team_data:
             matches.append({
                 "match_id": item.get("id"),
-                "opponent": tb.get("name", "?"),
+                "opponent": opponent_data.get("name", "?") if opponent_data else "?",
                 "date": item.get("created_at", ""),
-                "data": ta,
-                "matchup": report.get("matchup", {})
-            })
-        elif tb.get("name", "").lower() == team_name.lower():
-            matches.append({
-                "match_id": item.get("id"),
-                "opponent": ta.get("name", "?"),
-                "date": item.get("created_at", ""),
-                "data": tb,
+                "data": team_data,
+                "opponent_data": opponent_data or {},
                 "matchup": report.get("matchup", {})
             })
 
     if len(matches) < 2:
         return jsonify({"error": f"Precisa de pelo menos 2 analises do {team_name}. Encontradas: {len(matches)}"}), 400
 
-    # ── Análise de padrões ──
-    formations_all = []
-    compactness_vals = []
-    width_vals = []
-    depth_vals = []
-    pressing_vals = []
-    players_vals = []
+    import statistics
+    from collections import Counter
 
+    n = len(matches)
+    formations_all = []
     per_match = []
+
+    vals = {"compact": [], "width": [], "depth": [], "pressing": [], "players": []}
+    opp_vals = {"compact": [], "pressing": []}
+    was_more_compact = 0
+    was_more_aggressive = 0
+    was_wider = 0
 
     for m in matches:
         d = m["data"]
-        compactness_vals.append(d.get("compactness", 0))
-        width_vals.append(d.get("width", 0))
-        depth_vals.append(d.get("depth", 0))
-        pressing_vals.append(d.get("pressing", 0))
-        players_vals.append(d.get("players_avg", 0))
+        od = m["opponent_data"]
+        mu = m["matchup"]
+
+        vals["compact"].append(d.get("compactness", 0))
+        vals["width"].append(d.get("width", 0))
+        vals["depth"].append(d.get("depth", 0))
+        vals["pressing"].append(d.get("pressing", 0))
+        vals["players"].append(d.get("players_avg", 0))
+        opp_vals["compact"].append(od.get("compactness", 0))
+        opp_vals["pressing"].append(od.get("pressing", 0))
+
+        if mu.get("more_compact", "").lower() == team_name.lower():
+            was_more_compact += 1
+        if mu.get("more_aggressive", "").lower() == team_name.lower():
+            was_more_aggressive += 1
+        if mu.get("wider_play", "").lower() == team_name.lower():
+            was_wider += 1
 
         forms = d.get("formations", [])
         for f in forms:
             formations_all.append(f["formation"])
-
         top_form = forms[0]["formation"] if forms else "?"
 
         per_match.append({
@@ -346,154 +359,206 @@ def find_patterns():
             "width": d.get("width", 0),
             "depth": d.get("depth", 0),
             "pressing": d.get("pressing", 0),
-            "style": m["matchup"].get("style", "?")
+            "style": mu.get("style", "?")
         })
 
-    import statistics
-    from collections import Counter
+    def calc_stats(v):
+        v = [x for x in v if x > 0]
+        if not v:
+            return {"avg": 0, "std": 0, "min": 0, "max": 0, "consistent": True}
+        avg = round(statistics.mean(v), 1)
+        std = round(statistics.stdev(v), 1) if len(v) > 1 else 0
+        cv = (std / avg * 100) if avg > 0 else 0
+        return {"avg": avg, "std": std, "min": round(min(v), 1), "max": round(max(v), 1), "consistent": cv < 15}
 
-    n = len(matches)
-
-    # Formação mais usada
+    stats = {k: calc_stats(v) for k, v in vals.items()}
     form_counter = Counter(formations_all)
     top_formations = form_counter.most_common(5)
     total_forms = sum(form_counter.values())
 
-    # Médias e desvio padrão (consistência)
-    def stats_for(vals):
-        vals = [v for v in vals if v > 0]
-        if not vals:
-            return {"avg": 0, "std": 0, "min": 0, "max": 0, "consistent": True}
-        avg = round(statistics.mean(vals), 1)
-        std = round(statistics.stdev(vals), 1) if len(vals) > 1 else 0
-        cv = (std / avg * 100) if avg > 0 else 0
-        return {
-            "avg": avg,
-            "std": std,
-            "min": round(min(vals), 1),
-            "max": round(max(vals), 1),
-            "consistent": cv < 15  # < 15% variação = consistente
-        }
+    # ═══ ANÁLISE PROFUNDA ═══
+    insights = []
 
-    compact_stats = stats_for(compactness_vals)
-    width_stats = stats_for(width_vals)
-    depth_stats = stats_for(depth_vals)
-    pressing_stats = stats_for(pressing_vals)
+    # ── 1. PERFIL TÁTICO GERAL ──
+    avg_p = stats["pressing"]["avg"]
+    avg_w = stats["width"]["avg"]
+    avg_d = stats["depth"]["avg"]
+    avg_c = stats["compact"]["avg"]
 
-    # Detectar padrões
-    patterns = []
+    if avg_p < 10:
+        perfil_pressing = "time de pressao altissima que sufoca o adversario na saida de bola"
+    elif avg_p < 13:
+        perfil_pressing = "time que pressa de forma agressiva no campo adversario"
+    elif avg_p < 16:
+        perfil_pressing = "time que espera o adversario no bloco medio antes de pressionar"
+    else:
+        perfil_pressing = "time que recua e espera o adversario vir, priorizando organizacao defensiva"
 
-    # 1. Formação dominante
-    if top_formations:
-        top_f, top_c = top_formations[0]
-        pct = round(top_c / total_forms * 100, 1)
-        if pct > 25:
-            patterns.append({
-                "type": "formation",
-                "title": f"Formacao predominante: {top_f}",
-                "detail": f"Usada em {pct}% das analises. Indica que o time tem uma estrutura tatica preferida.",
-                "confidence": "alta" if pct > 40 else "media"
-            })
+    ratio_wd = avg_w / avg_d if avg_d > 0 else 1
+    if ratio_wd > 3.2:
+        perfil_forma = "jogo extremamente horizontal — o time abre muito o campo, buscando superioridade numerica pelas pontas"
+    elif ratio_wd > 2.5:
+        perfil_forma = "jogo largo com boa amplitude — busca triangulacoes pelas laterais e cruzamentos"
+    elif ratio_wd > 1.8:
+        perfil_forma = "equilíbrio entre largura e profundidade — alterna entre jogo pelo meio e pelas pontas"
+    else:
+        perfil_forma = "jogo muito vertical e direto — privilegia passes em profundidade e contra-ataques rapidos"
 
-    # 2. Consistência de compactação
-    if compact_stats["consistent"]:
-        patterns.append({
-            "type": "shape",
-            "title": "Bloco compacto consistente",
-            "detail": f"Compactacao media de {compact_stats['avg']}m2 com variacao de apenas {compact_stats['std']}m2. O time mantem a mesma forma independente do adversario.",
+    insights.append({
+        "category": "PERFIL TATICO",
+        "icon": "brain",
+        "items": [
+            {
+                "title": "Identidade de jogo",
+                "detail": f"{team_name} e um {perfil_pressing}. Sua forma tatica indica {perfil_forma}.",
+                "confidence": "alta"
+            }
+        ]
+    })
+
+    # ── 2. AGRESSIVIDADE ──
+    agg_items = []
+    pct_aggressive = round(was_more_aggressive / n * 100)
+    pct_compact = round(was_more_compact / n * 100)
+
+    if pct_aggressive > 70:
+        agg_items.append({
+            "title": f"Agressividade dominante ({pct_aggressive}% das partidas)",
+            "detail": f"{team_name} foi o time mais agressivo em {was_more_aggressive} de {n} partidas. Isso indica um padrao sistematico de buscar o gol ativamente, nao apenas reagir ao adversario.",
             "confidence": "alta"
         })
+    elif pct_aggressive > 40:
+        agg_items.append({
+            "title": f"Agressividade equilibrada ({pct_aggressive}%)",
+            "detail": f"O time alterna entre ser agressivo e reativo dependendo do adversario. Sugere um treinador que adapta o plano de jogo.",
+            "confidence": "media"
+        })
     else:
-        patterns.append({
-            "type": "shape",
-            "title": "Forma tatica adaptativa",
-            "detail": f"Compactacao varia de {compact_stats['min']}m2 a {compact_stats['max']}m2. O time adapta sua forma ao adversario.",
+        agg_items.append({
+            "title": f"Perfil reativo ({100 - pct_aggressive}% defensivo)",
+            "detail": f"{team_name} raramente e o time mais agressivo. Prefere absorver a pressao e contra-atacar.",
+            "confidence": "alta"
+        })
+
+    if avg_p < 14:
+        agg_items.append({
+            "title": f"Pressing alto ativo ({avg_p}m media)",
+            "detail": f"A distancia media de pressing de {avg_p}m indica que {team_name} pressiona o adversario ainda no campo de ataque. Padrao tipico de times que treinam triggers de pressao — quando a bola vai pro zagueiro ou lateral, todo o time sobe junto. Isso sugere jogadas ensaiadas de recuperacao de bola.",
+            "confidence": "alta"
+        })
+    elif avg_p < 17:
+        agg_items.append({
+            "title": f"Pressing seletivo ({avg_p}m media)",
+            "detail": f"{team_name} nao pressa o tempo todo — escolhe os momentos. A distancia de {avg_p}m sugere que o time espera o adversario chegar ao meio campo antes de fechar os espacos. Isso pode indicar uma armadilha tatica: deixar o adversario avançar e entao pressionar com intensidade.",
             "confidence": "media"
         })
 
-    # 3. DNA de pressing
-    if pressing_stats["consistent"]:
-        avg_p = pressing_stats["avg"]
-        if avg_p < 10:
-            press_style = "alta pressao (gegenpressing)"
-        elif avg_p < 14:
-            press_style = "pressao media-alta"
-        elif avg_p < 18:
-            press_style = "bloco medio"
-        else:
-            press_style = "bloco baixo"
-        patterns.append({
-            "type": "pressing",
-            "title": f"DNA de pressing: {press_style}",
-            "detail": f"Distancia media de pressing de {avg_p}m consistente em todas as partidas. Isso sugere um estilo de jogo bem treinado e ensaiado.",
+    insights.append({"category": "AGRESSIVIDADE", "icon": "zap", "items": agg_items})
+
+    # ── 3. PADROES DE JOGADA ──
+    play_items = []
+
+    if avg_w > 48 and stats["width"]["consistent"]:
+        play_items.append({
+            "title": "Jogadas ensaiadas pelas pontas",
+            "detail": f"A largura consistente de {avg_w}m em todas as partidas indica que {team_name} tem um padrao claro de jogo pelas laterais. Os laterais ou pontas abrem o campo de forma padronizada — provavelmente com movimentos ensaiados de overlap (lateral passando por cima do ponta) ou underlap (lateral cortando por dentro).",
             "confidence": "alta"
         })
-    else:
-        patterns.append({
-            "type": "pressing",
-            "title": "Pressing variavel por contexto",
-            "detail": f"Pressing varia de {pressing_stats['min']}m a {pressing_stats['max']}m. O time ajusta intensidade conforme o adversario.",
+
+    if avg_d > 18 and stats["depth"]["consistent"]:
+        play_items.append({
+            "title": "Padrao de bolas em profundidade",
+            "detail": f"Profundidade de {avg_d}m constante sugere que {team_name} trabalha com atacantes fazendo movimentos de ruptura (correndo nas costas da defesa). Esse padrao repetido indica jogada ensaiada — possivelmente bolas longas do meio-campo ou lançamentos do zagueiro direto para o atacante.",
+            "confidence": "alta"
+        })
+
+    if avg_c < 450 and stats["compact"]["consistent"]:
+        play_items.append({
+            "title": "Triangulacoes curtas no meio",
+            "detail": f"A compactacao baixa ({avg_c}m2) indica jogadores muito proximos. Isso favorece triangulacoes rapidas (toque-passa-recebe). Padrao tipico de times que jogam no estilo tiki-taka ou pressionam em bloco.",
+            "confidence": "alta"
+        })
+    elif avg_c > 600:
+        play_items.append({
+            "title": "Time espaçado — jogo direto",
+            "detail": f"A compactacao alta ({avg_c}m2) mostra jogadores espalhados. Isso indica um time que prefere jogo direto com passes longos, evitando construcao elaborada.",
             "confidence": "media"
         })
 
-    # 4. Largura consistente (jogo ensaiado pelas pontas)
-    if width_stats["consistent"] and width_stats["avg"] > 45:
-        patterns.append({
-            "type": "width",
-            "title": "Jogo largo ensaiado",
-            "detail": f"Largura media de {width_stats['avg']}m mantida em todas as partidas. Indica jogadas ensaiadas com amplitude pelas pontas.",
-            "confidence": "alta"
-        })
-    elif width_stats["consistent"] and width_stats["avg"] < 35:
-        patterns.append({
-            "type": "width",
-            "title": "Jogo centralizado padrao",
-            "detail": f"Largura media de {width_stats['avg']}m. O time concentra jogadas pelo meio de campo de forma consistente.",
+    if stats["pressing"]["consistent"] and stats["width"]["consistent"]:
+        play_items.append({
+            "title": "Sistema tatico automatizado",
+            "detail": f"Tanto o pressing ({avg_p}m) quanto a largura ({avg_w}m) sao consistentes entre partidas. Isso e um forte indicador de que o time tem movimentos ensaiados e bem treinados — os jogadores sabem exatamente onde se posicionar independente do adversario.",
             "confidence": "alta"
         })
 
-    # 5. Profundidade (verticalidade)
-    if depth_stats["consistent"]:
-        if depth_stats["avg"] > 20:
-            patterns.append({
-                "type": "depth",
-                "title": "Time vertical e profundo",
-                "detail": f"Profundidade de {depth_stats['avg']}m constante. O time busca profundidade de forma padronizada — possivel padrao de bolas longas ou contra-ataques ensaiados.",
-                "confidence": "alta"
-            })
-        elif depth_stats["avg"] < 14:
-            patterns.append({
-                "type": "depth",
-                "title": "Linhas muito juntas",
-                "detail": f"Profundidade de apenas {depth_stats['avg']}m. Time joga com linhas compactas — padrao de bloco bem organizado.",
-                "confidence": "alta"
-            })
+    if not play_items:
+        play_items.append({
+            "title": "Padroes variados",
+            "detail": f"{team_name} nao repete um padrao claro de jogada entre as partidas analisadas. Pode indicar adaptacao tatica ou falta de identidade definida.",
+            "confidence": "baixa"
+        })
 
-    # 6. Estilo dominante
-    styles = [m["style"] for m in per_match]
-    style_counter = Counter(styles)
-    if style_counter:
-        top_style, top_sc = style_counter.most_common(1)[0]
-        if top_sc >= n * 0.6:
-            patterns.append({
-                "type": "style",
-                "title": f"Estilo dominante: {top_style}",
-                "detail": f"Em {top_sc} de {n} partidas o time jogou no mesmo estilo. Forte indicador de identidade tatica.",
-                "confidence": "alta"
-            })
+    insights.append({"category": "PADROES DE JOGADA", "icon": "target", "items": play_items})
+
+    # ── 4. ORGANIZACAO DEFENSIVA ──
+    def_items = []
+    if pct_compact > 60:
+        def_items.append({
+            "title": f"Defesa organizada ({pct_compact}% mais compacto)",
+            "detail": f"{team_name} foi o time mais compacto em {was_more_compact} de {n} partidas. Indica uma organizacao defensiva superior — os jogadores mantem as distancias corretas entre si, dificultando infiltracoes do adversario.",
+            "confidence": "alta"
+        })
+
+    if avg_d < 16:
+        def_items.append({
+            "title": "Linhas defensivas juntas",
+            "detail": f"Com profundidade de apenas {avg_d}m, {team_name} mantem defesa e meio-campo muito proximos. Isso elimina espacos entre linhas que o adversario poderia explorar.",
+            "confidence": "alta"
+        })
+    elif avg_d > 22:
+        def_items.append({
+            "title": "Vulnerabilidade entre linhas",
+            "detail": f"Profundidade de {avg_d}m cria um espaco grande entre defesa e meio-campo. Adversarios podem explorar esse espaco com jogadores entre linhas (meia-atacantes).",
+            "confidence": "media"
+        })
+
+    if def_items:
+        insights.append({"category": "ORGANIZACAO DEFENSIVA", "icon": "shield", "items": def_items})
+
+    # ── 5. CONCLUSAO ──
+    conclusion_parts = []
+    conclusion_parts.append(f"{team_name} apresenta um estilo de jogo {'consistente' if stats['pressing']['consistent'] and stats['width']['consistent'] else 'adaptativo'} ao longo das {n} partidas analisadas.")
+
+    if was_more_aggressive > n / 2:
+        conclusion_parts.append(f"E um time predominantemente ofensivo que busca impor seu jogo.")
+    else:
+        conclusion_parts.append(f"Tende a adaptar sua abordagem ao adversario.")
+
+    if stats["width"]["consistent"] and avg_w > 45:
+        conclusion_parts.append(f"Suas jogadas ensaiadas priorizam amplitude pelas pontas ({avg_w}m de largura).")
+    if stats["pressing"]["consistent"] and avg_p < 14:
+        conclusion_parts.append(f"O pressing alto e coordenado ({avg_p}m) sugere triggers de pressao bem treinados.")
+    if avg_c < 500 and stats["compact"]["consistent"]:
+        conclusion_parts.append(f"A compactacao ({avg_c}m2) favorece troca de passes rapidos e triangulacoes.")
+
+    insights.append({
+        "category": "CONCLUSAO TATICA",
+        "icon": "brain",
+        "items": [{
+            "title": "Resumo da identidade tatica",
+            "detail": " ".join(conclusion_parts),
+            "confidence": "alta"
+        }]
+    })
 
     return jsonify({
         "team": team_name,
         "matches_analyzed": n,
         "per_match": per_match,
-        "stats": {
-            "compactness": compact_stats,
-            "width": width_stats,
-            "depth": depth_stats,
-            "pressing": pressing_stats,
-        },
-        "top_formations": [{"formation": f, "count": c, "percent": round(c/total_forms*100, 1)} for f, c in top_formations],
-        "patterns": patterns
+        "stats": {k: calc_stats(v) for k, v in vals.items()},
+        "top_formations": [{"formation": f, "count": c, "percent": round(c / total_forms * 100, 1)} for f, c in top_formations],
+        "insights": insights
     })
 
 
