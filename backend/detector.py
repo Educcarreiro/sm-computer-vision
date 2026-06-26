@@ -123,14 +123,51 @@ def match_team_to_cluster(team_name, centers):
     return int(np.argmin(dists))
 
 
+COLOR_NAME_TO_HSV = {
+    "amarelo":  (25, 200, 220),
+    "azul":     (110, 200, 180),
+    "vermelho": (0, 220, 180),
+    "branco":   (0, 0, 230),
+    "preto":    (0, 0, 35),
+    "verde":    (50, 180, 130),
+    "laranja":  (12, 230, 200),
+    "roxo":     (140, 180, 150),
+    "cinza":    (0, 0, 130),
+    "vinho":    (170, 180, 100),
+}
+
+
+def match_color_hint_to_cluster(color_name, centers):
+    """Associa uma cor de camisa selecionada pelo usuário ao cluster correto"""
+    hsv = COLOR_NAME_TO_HSV.get(color_name.lower().strip())
+    if not hsv:
+        return None
+    known = np.array(hsv, dtype=np.float32)
+    dists = []
+    for c in centers:
+        c_arr = np.array(c, dtype=np.float32)
+        h_diff = min(abs(c_arr[0] - known[0]), 180 - abs(c_arr[0] - known[0]))
+        sv_diff = np.sqrt((c_arr[1] - known[1])**2 + (c_arr[2] - known[2])**2)
+        dists.append(h_diff * 2 + sv_diff)
+    return int(np.argmin(dists))
+
+
 def assign_teams(team_a_name, team_b_name, centers, calibration=None):
     """
     Determina qual cluster (0 ou 1) corresponde a qual time.
-    Prioridade: calibração manual > banco de cores > padrão
+    Prioridade: calibração manual > cor da camisa > banco de cores > padrão
     Retorna: (cluster_idx_para_team_a, cluster_idx_para_team_b)
     """
     if calibration:
-        return calibration.get("team_a_cluster", 0), calibration.get("team_b_cluster", 1)
+        # Calibração manual por clique
+        if "team_a_cluster" in calibration:
+            return calibration["team_a_cluster"], calibration.get("team_b_cluster", 1)
+
+        # Cor da camisa selecionada pelo usuário
+        if "jersey_color_hint" in calibration:
+            match = match_color_hint_to_cluster(calibration["jersey_color_hint"], centers)
+            if match is not None:
+                return match, 1 - match
 
     match_a = match_team_to_cluster(team_a_name, centers)
     match_b = match_team_to_cluster(team_b_name, centers)

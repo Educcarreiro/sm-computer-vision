@@ -100,9 +100,14 @@ def analyze():
     team_a = data.get("team_a", "Team A").strip()
     team_b = data.get("team_b", "Team B").strip()
     calibration = data.get("calibration", None)
+    jersey_color = data.get("jersey_color", None)
 
     if not url:
         return jsonify({"error": "URL e obrigatoria"}), 400
+
+    # Se o usuário passou cor da camisa, criar calibração automática
+    if jersey_color and not calibration:
+        calibration = {"jersey_color_hint": jersey_color, "team_name": team_a}
 
     job_id = str(int(time.time() * 1000))
     jobs[job_id] = {
