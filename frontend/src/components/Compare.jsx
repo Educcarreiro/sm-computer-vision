@@ -53,42 +53,41 @@ export default function Compare() {
     }
   }, [status1, status2])
 
+  const [submitting, setSubmitting] = useState(false)
+
   const startBoth = async () => {
     if (!side1.url || !side2.url || !side1.team || !side2.team) return
     setComparison(null)
-    setStatus1({ status: 'queued', progress: 0 })
-    setStatus2({ status: 'queued', progress: 0 })
+    setSubmitting(true)
+    setStatus1(null)
+    setStatus2(null)
+    setJob1(null)
+    setJob2(null)
 
     try {
-      const [r1, r2] = await Promise.all([
-        fetch(`${API}/analyze`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            url: side1.url,
-            team_a: side1.team,
-            team_b: 'Adversario',
-            jersey_color: side1.color || undefined
-          })
-        }).then(r => r.json()),
-        fetch(`${API}/analyze`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            url: side2.url,
-            team_a: side2.team,
-            team_b: 'Adversario',
-            jersey_color: side2.color || undefined
-          })
-        }).then(r => r.json())
-      ])
+      const makeRequest = (side) => fetch(`${API}/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: side.url,
+          team_a: side.team,
+          team_b: 'Adversario',
+          jersey_color: side.color || undefined
+        })
+      }).then(r => r.json())
+
+      const [r1, r2] = await Promise.all([makeRequest(side1), makeRequest(side2)])
 
       setJob1(r1.job_id)
       setJob2(r2.job_id)
+      setStatus1({ status: 'queued', progress: 0 })
+      setStatus2({ status: 'queued', progress: 0 })
     } catch (err) {
-      setStatus1({ status: 'error', error: 'Falha ao conectar com o backend' })
-      setStatus2({ status: 'error', error: 'Falha ao conectar com o backend' })
+      console.error('Compare error:', err)
+      setStatus1({ status: 'error', error: err.message || 'Erro ao conectar' })
+      setStatus2({ status: 'error', error: err.message || 'Erro ao conectar' })
     }
+    setSubmitting(false)
   }
 
   const buildComparison = () => {
@@ -108,7 +107,8 @@ export default function Compare() {
     })
   }
 
-  const processing = (status1 && !['done', 'error'].includes(status1.status)) ||
+  const processing = submitting ||
+                     (status1 && !['done', 'error'].includes(status1.status)) ||
                      (status2 && !['done', 'error'].includes(status2.status))
   const canStart = side1.url && side2.url && side1.team && side2.team && !processing
 
