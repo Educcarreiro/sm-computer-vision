@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { GitCompare, Play, Link, Users, Palette, Loader2 } from 'lucide-react'
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+const API = import.meta.env.VITE_API_URL || '/api'
 
 const COLORS = [
   { value: 'amarelo', label: 'Amarelo', hex: '#f5c518' },

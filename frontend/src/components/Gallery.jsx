@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Film, Target, Maximize2, ArrowUpDown, Swords, ChevronDown, ChevronUp, Calendar } from 'lucide-react'
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+const API = import.meta.env.VITE_API_URL || '/api'
 
 export default function Gallery() {
   const [items, setItems] = useState([])

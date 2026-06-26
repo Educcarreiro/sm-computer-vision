@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Play, Link, Users, Crosshair, Loader2 } from 'lucide-react'
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+const API = import.meta.env.VITE_API_URL || '/api'
 
 export default function VideoInput({ onSubmit, disabled }) {
   const [url, setUrl] = useState('')

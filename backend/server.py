@@ -43,7 +43,7 @@ def run_job(job_id, url, team_a, team_b, calibration=None):
         ytdlp_path = shutil.which("yt-dlp") or "yt-dlp"
         result = subprocess.run(
             [ytdlp_path, "-f", "best[height<=720]", "-o", video_path, url],
-            capture_output=True, text=True, timeout=600
+            capture_output=True, text=True, timeout=3600
         )
         if result.returncode != 0:
             jobs[job_id]["status"] = "error"
@@ -67,7 +67,7 @@ def run_job(job_id, url, team_a, team_b, calibration=None):
                 "-c:v", "libx264", "-preset", "fast", "-crf", "23",
                 "-pix_fmt", "yuv420p", "-movflags", "+faststart",
                 "-y", web_path
-            ], capture_output=True, timeout=600)
+            ], capture_output=True, timeout=3600)
             if os.path.exists(web_path):
                 os.remove(video_out)
                 video_out = web_path
