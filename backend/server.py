@@ -42,7 +42,7 @@ def run_job(job_id, url, team_a, team_b, calibration=None):
         import shutil
         ytdlp_path = shutil.which("yt-dlp") or "yt-dlp"
         result = subprocess.run(
-            [ytdlp_path, "-f", "best[height<=720]", "-o", video_path, url],
+            [ytdlp_path, "--js-runtimes", "nodejs,deno", "-f", "best[height<=720]", "-o", video_path, url],
             capture_output=True, text=True, timeout=3600
         )
         if result.returncode != 0:

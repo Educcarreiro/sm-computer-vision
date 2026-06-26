@@ -6,10 +6,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-0 \
     curl \
     unzip \
-    && curl -fsSL https://dl.deno.land/release/latest/deno-x86_64-unknown-linux-gnu.zip -o /tmp/deno.zip \
-    && unzip /tmp/deno.zip -d /usr/local/bin/ \
-    && rm /tmp/deno.zip \
-    && chmod +x /usr/local/bin/deno \
+    nodejs \
+    npm \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
