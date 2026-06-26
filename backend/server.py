@@ -11,7 +11,7 @@ from detector import process_video, extract_calibration_frame, KNOWN_TEAMS
 FFMPEG = imageio_ffmpeg.get_ffmpeg_exe()
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUTS_DIR = os.path.join(BASE_DIR, "outputs")
@@ -62,6 +62,14 @@ def run_job(job_id, url, team_a, team_b, calibration=None):
         if video_out and report:
             jobs[job_id]["status"] = "converting"
             web_path = video_out.replace(".mp4", "_web.mp4")
+            # Aguardar o arquivo ser liberado pelo OpenCV no Windows
+            for _ in range(10):
+                try:
+                    with open(video_out, 'rb') as f:
+                        f.read(1)
+                    break
+                except PermissionError:
+                    time.sleep(1)
             subprocess.run([
                 FFMPEG, "-i", video_out,
                 "-c:v", "libx264", "-preset", "fast", "-crf", "23",
@@ -69,8 +77,12 @@ def run_job(job_id, url, team_a, team_b, calibration=None):
                 "-y", web_path
             ], capture_output=True, timeout=3600)
             if os.path.exists(web_path):
-                os.remove(video_out)
-                video_out = web_path
+                for _ in range(5):
+                    try:
+                        os.remove(video_out)
+                        break
+                    except PermissionError:
+                        time.sleep(1)
             jobs[job_id]["status"] = "done"
             jobs[job_id]["video"] = os.path.basename(video_out)
             jobs[job_id]["report"] = report

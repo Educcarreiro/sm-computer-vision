@@ -35,7 +35,11 @@ export default function Patterns() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ team: teamName })
       })
-      const data = await res.json()
+      if (!res.ok && res.status !== 400) throw new Error(`HTTP ${res.status}`)
+      const text = await res.text()
+      let data
+      try { data = JSON.parse(text) }
+      catch { throw new Error('Resposta invalida do servidor') }
       if (data.error) {
         setError(data.error)
       } else {

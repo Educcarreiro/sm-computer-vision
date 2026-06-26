@@ -65,16 +65,22 @@ export default function Compare() {
     setJob2(null)
 
     try {
-      const makeRequest = (side) => fetch(`${API}/analyze`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url: side.url,
-          team_a: side.team,
-          team_b: 'Adversario',
-          jersey_color: side.color || undefined
+      const makeRequest = async (side) => {
+        const res = await fetch(`${API}/analyze`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url: side.url,
+            team_a: side.team,
+            team_b: 'Adversario',
+            jersey_color: side.color || undefined
+          })
         })
-      }).then(r => r.json())
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const text = await res.text()
+        try { return JSON.parse(text) }
+        catch { throw new Error('Resposta invalida do servidor') }
+      }
 
       const [r1, r2] = await Promise.all([makeRequest(side1), makeRequest(side2)])
 
