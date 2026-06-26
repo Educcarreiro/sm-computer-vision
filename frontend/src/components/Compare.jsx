@@ -56,35 +56,39 @@ export default function Compare() {
   const startBoth = async () => {
     if (!side1.url || !side2.url || !side1.team || !side2.team) return
     setComparison(null)
-
-    const r1 = await fetch(`${API}/analyze`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        url: side1.url,
-        team_a: side1.team,
-        team_b: 'Adversario',
-        jersey_color: side1.color,
-        focus_team: 'a'
-      })
-    }).then(r => r.json())
-
-    const r2 = await fetch(`${API}/analyze`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        url: side2.url,
-        team_a: side2.team,
-        team_b: 'Adversario',
-        jersey_color: side2.color,
-        focus_team: 'a'
-      })
-    }).then(r => r.json())
-
-    setJob1(r1.job_id)
-    setJob2(r2.job_id)
     setStatus1({ status: 'queued', progress: 0 })
     setStatus2({ status: 'queued', progress: 0 })
+
+    try {
+      const [r1, r2] = await Promise.all([
+        fetch(`${API}/analyze`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url: side1.url,
+            team_a: side1.team,
+            team_b: 'Adversario',
+            jersey_color: side1.color || undefined
+          })
+        }).then(r => r.json()),
+        fetch(`${API}/analyze`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url: side2.url,
+            team_a: side2.team,
+            team_b: 'Adversario',
+            jersey_color: side2.color || undefined
+          })
+        }).then(r => r.json())
+      ])
+
+      setJob1(r1.job_id)
+      setJob2(r2.job_id)
+    } catch (err) {
+      setStatus1({ status: 'error', error: 'Falha ao conectar com o backend' })
+      setStatus2({ status: 'error', error: 'Falha ao conectar com o backend' })
+    }
   }
 
   const buildComparison = () => {

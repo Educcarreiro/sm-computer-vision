@@ -39,13 +39,15 @@ def run_job(job_id, url, team_a, team_b, calibration=None):
     try:
         jobs[job_id]["status"] = "downloading"
         video_path = os.path.join(OUTPUTS_DIR, f"source_{job_id}.mp4")
+        import shutil
+        ytdlp_path = shutil.which("yt-dlp") or "yt-dlp"
         result = subprocess.run(
-            ["yt-dlp", "-f", "best[height<=720]", "-o", video_path, url],
+            [ytdlp_path, "-f", "best[height<=720]", "-o", video_path, url],
             capture_output=True, text=True, timeout=600
         )
         if result.returncode != 0:
             jobs[job_id]["status"] = "error"
-            jobs[job_id]["error"] = "Erro ao baixar video"
+            jobs[job_id]["error"] = f"Erro ao baixar video: {result.stderr[:200] if result.stderr else 'unknown'}"
             return
 
         jobs[job_id]["status"] = "processing"
