@@ -4,8 +4,8 @@ import VideoInput from './components/VideoInput'
 import ProcessingStatus from './components/ProcessingStatus'
 import TacticalReport from './components/TacticalReport'
 import VideoPlayer from './components/VideoPlayer'
-import History from './components/History'
 import Gallery from './components/Gallery'
+import Compare from './components/Compare'
 import './App.css'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
@@ -13,14 +13,6 @@ const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 function App() {
   const [jobId, setJobId] = useState(null)
   const [jobStatus, setJobStatus] = useState(null)
-  const [history, setHistory] = useState({})
-
-  useEffect(() => {
-    fetch(`${API}/jobs`)
-      .then(r => r.json())
-      .then(setHistory)
-      .catch(() => {})
-  }, [])
 
   useEffect(() => {
     if (!jobId) return
@@ -31,9 +23,6 @@ function App() {
           setJobStatus(data)
           if (data.status === 'done' || data.status === 'error') {
             clearInterval(interval)
-            if (data.status === 'done') {
-              setHistory(prev => ({ ...prev, [jobId]: data }))
-            }
           }
         })
         .catch(() => {})
@@ -41,20 +30,17 @@ function App() {
     return () => clearInterval(interval)
   }, [jobId])
 
-  const handleSubmit = async (url, teamA, teamB) => {
+  const handleSubmit = async (url, teamA, teamB, calibration) => {
+    const body = { url, team_a: teamA, team_b: teamB }
+    if (calibration) body.calibration = calibration
     const res = await fetch(`${API}/analyze`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, team_a: teamA, team_b: teamB })
+      body: JSON.stringify(body)
     })
     const data = await res.json()
     setJobId(data.job_id)
     setJobStatus({ status: 'queued', progress: 0 })
-  }
-
-  const loadFromHistory = (id, data) => {
-    setJobId(id)
-    setJobStatus(data)
   }
 
   const isProcessing = jobStatus && !['done', 'error'].includes(jobStatus.status)
@@ -83,11 +69,8 @@ function App() {
           </div>
         )}
 
+        <Compare />
         <Gallery />
-
-        {Object.keys(history).length > 0 && (
-          <History items={history} onLoad={loadFromHistory} apiBase={API} />
-        )}
       </main>
     </div>
   )
