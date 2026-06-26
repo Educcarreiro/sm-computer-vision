@@ -6,6 +6,7 @@ import TacticalReport from './components/TacticalReport'
 import VideoPlayer from './components/VideoPlayer'
 import Gallery from './components/Gallery'
 import Compare from './components/Compare'
+import Patterns from './components/Patterns'
 import './App.css'
 
 const API = import.meta.env.VITE_API_URL || '/api'
@@ -70,6 +71,7 @@ function App() {
         )}
 
         <Compare />
+        <Patterns />
         <Gallery />
       </main>
     </div>
