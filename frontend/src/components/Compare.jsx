@@ -17,8 +17,8 @@ const COLORS = [
 ]
 
 export default function Compare() {
-  const [side1, setSide1] = useState({ url: '', team: '', color: '' })
-  const [side2, setSide2] = useState({ url: '', team: '', color: '' })
+  const [side1, setSide1] = useState({ url: '', team: '', color: '', opponent: '' })
+  const [side2, setSide2] = useState({ url: '', team: '', color: '', opponent: '' })
   const [job1, setJob1] = useState(null)
   const [job2, setJob2] = useState(null)
   const [status1, setStatus1] = useState(null)
@@ -72,7 +72,7 @@ export default function Compare() {
           body: JSON.stringify({
             url: side.url,
             team_a: side.team,
-            team_b: 'Adversario',
+            team_b: side.opponent || 'Adversario',
             jersey_color: side.color || undefined
           })
         })
@@ -209,18 +209,29 @@ function SideBlock({ label, color, side, onChange, status, disabled }) {
         />
       </div>
 
-      <div style={{ marginBottom: 8 }}>
-        <label style={miniLabel}><Users size={11} /> Time que quero analisar</label>
-        <input
-          type="text" placeholder="Ex: Brasil"
-          value={side.team}
-          onChange={e => onChange({ ...side, team: e.target.value })}
-          disabled={disabled} style={inputStyle}
-        />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 8 }}>
+        <div>
+          <label style={miniLabel}><Users size={11} /> Time que quero analisar</label>
+          <input
+            type="text" placeholder="Ex: Brasil"
+            value={side.team}
+            onChange={e => onChange({ ...side, team: e.target.value })}
+            disabled={disabled} style={inputStyle}
+          />
+        </div>
+        <div>
+          <label style={miniLabel}><Users size={11} /> Adversario</label>
+          <input
+            type="text" placeholder="Ex: Escocia"
+            value={side.opponent}
+            onChange={e => onChange({ ...side, opponent: e.target.value })}
+            disabled={disabled} style={inputStyle}
+          />
+        </div>
       </div>
 
       <div>
-        <label style={miniLabel}><Palette size={11} /> Cor da camisa desse time</label>
+        <label style={miniLabel}><Palette size={11} /> Cor da camisa do time analisado</label>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
           {COLORS.map(c => (
             <button
